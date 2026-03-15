@@ -9,7 +9,8 @@ import {
   Typography,
   Tabs,
   Tab,
-  Alert
+  Alert,
+  Link
 } from '@mui/material'
 import {
   Login as LoginIcon,
@@ -25,6 +26,7 @@ export default function Auth({ onLoginSuccess }: AuthProps) {
   const [tab, setTab] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
   // 登录表单状态
   const [loginEmail, setLoginEmail] = useState('')
@@ -82,7 +84,14 @@ export default function Auth({ onLoginSuccess }: AuthProps) {
 
       if (error) throw error
 
-      alert('注册成功！请登录。')
+      setSuccessMessage('注册成功！请检查您的邮箱完成验证，然后登录。')
+      setTimeout(() => {
+        setSuccessMessage(null)
+        setTab(0)
+        setRegisterEmail('')
+        setRegisterPassword('')
+        setConfirmPassword('')
+      }, 3000)
     } catch (err: any) {
       setError(err.message || '注册失败，请重试')
     } finally {
@@ -93,6 +102,7 @@ export default function Auth({ onLoginSuccess }: AuthProps) {
   const handleSwitchTab = (_: React.SyntheticEvent, newTab: number) => {
     setTab(newTab)
     setError(null)
+    setSuccessMessage(null)
   }
 
   return (
@@ -138,6 +148,12 @@ export default function Auth({ onLoginSuccess }: AuthProps) {
               </Alert>
             )}
 
+            {successMessage && (
+              <Alert severity="success" sx={{ mb: 2 }}>
+                {successMessage}
+              </Alert>
+            )}
+
             {tab === 0 ? (
               // 登录表单
               <form onSubmit={handleLogin}>
@@ -161,6 +177,15 @@ export default function Auth({ onLoginSuccess }: AuthProps) {
                   required
                   autoComplete="current-password"
                 />
+                <Box sx={{ textAlign: 'right', mt: 1 }}>
+                  <Link
+                    href="/forgot-password"
+                    underline="hover"
+                    sx={{ fontSize: '0.875rem' }}
+                  >
+                    忘记密码？
+                  </Link>
+                </Box>
                 <Button
                   type="submit"
                   fullWidth
@@ -194,6 +219,7 @@ export default function Auth({ onLoginSuccess }: AuthProps) {
                   margin="normal"
                   required
                   autoComplete="new-password"
+                  helperText="密码长度至少 6 位"
                 />
                 <TextField
                   fullWidth
