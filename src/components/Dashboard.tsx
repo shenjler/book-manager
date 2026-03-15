@@ -11,17 +11,21 @@ import {
   DialogContent,
   Snackbar,
   Alert,
-  IconButton
+  IconButton,
+  TextField,
+  Button
 } from '@mui/material'
 import {
   Add as AddIcon,
   Logout as LogoutIcon,
   Book as BookIcon
 } from '@mui/icons-material'
+import LockIcon from '@mui/icons-material/Lock'
 import useBooks from '../hooks/useBooks'
 import BookForm from './BookForm'
 import BookList from './BookList'
 import { Book, BookFormData } from '../types/book'
+import { supabase } from '../utils/supabaseClient'
 
 interface User {
   id: string
@@ -40,6 +44,13 @@ export default function Dashboard({ user }: DashboardProps) {
     message: '',
     severity: 'success' as 'success' | 'error'
   })
+  const [openPasswordDialog, setOpenPasswordDialog] = useState(false)
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  })
+  const [passwordLoading, setPasswordLoading] = useState(false)
 
   const { books, loading, addBook, updateBook, deleteBook } = useBooks()
 
@@ -101,9 +112,67 @@ export default function Dashboard({ user }: DashboardProps) {
   }
 
   const handleSignOut = async () => {
-    const supabase = require('../utils/supabaseClient').supabase
     await supabase.auth.signOut()
     window.location.reload()
+  }
+
+  // 修改密码对话框
+  const handleOpenPasswordDialog = () => {
+    setOpenPasswordDialog(true)
+    setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' })
+  }
+
+  const handleClosePasswordDialog = () => {
+    setOpenPasswordDialog(false)
+    setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' })
+  }
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setPasswordLoading(true)
+    setSnackbar({ open: false, message: '', severity: 'success' })
+
+    try {
+      if (passwordData.newPassword !== passwordData.confirmPassword) {
+        throw new Error('两次输入的新密码不一致')
+      }
+
+      if (passwordData.newPassword.length < 6) {
+        throw new Error('密码长度至少为 6 位')
+      }
+
+      // 首先验证旧密码
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: user.email!,
+        password: passwordData.currentPassword
+      })
+
+      if (signInError) {
+        throw new Error('当前密码错误')
+      }
+
+      // 旧密码验证通过，更新为新密码
+      const { error } = await supabase.auth.updateUser({
+        password: passwordData.newPassword
+      })
+
+      if (error) throw error
+
+      setSnackbar({
+        open: true,
+        message: '密码修改成功',
+        severity: 'success'
+      })
+      handleClosePasswordDialog()
+    } catch (err: any) {
+      setSnackbar({
+        open: true,
+        message: err.message || '密码修改失败，请重试',
+        severity: 'error'
+      })
+    } finally {
+      setPasswordLoading(false)
+    }
   }
 
   // 统计信息
@@ -121,7 +190,10 @@ export default function Dashboard({ user }: DashboardProps) {
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <Typography variant="body2">{user.email}</Typography>
-            <IconButton color="inherit" onClick={handleSignOut}>
+            <IconButton color="inherit" onClick={handleOpenPasswordDialog} title="修改密码">
+              <LockIcon />
+            </IconButton>
+            <IconButton color="inherit" onClick={handleSignOut} title="退出登录">
               <LogoutIcon />
             </IconButton>
           </Box>
@@ -199,6 +271,66 @@ export default function Dashboard({ user }: DashboardProps) {
           {snackbar.message}
         </Alert>
       </Snackbar>
+
+      {/* 修改密码对话框 */}
+      <Dialog
+        open={openPasswordDialog}
+        onClose={handleClosePasswordDialog}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>
+          修改密码
+        </DialogTitle>
+        <DialogContent>
+          <form onSubmit={handleChangePassword}>
+            <TextField
+              fullWidth
+              label="当前密码"
+              type="password"
+              value={passwordData.currentPassword}
+              onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+              margin="normal"
+              required
+              autoComplete="current-password"
+              autoFocus
+            />
+            <TextField
+              fullWidth
+              label="新密码"
+              type="password"
+              value={passwordData.newPassword}
+              onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+              margin="normal"
+              required
+              autoComplete="new-password"
+              helperText="密码长度至少 6 位"
+            />
+            <TextField
+              fullWidth
+              label="确认新密码"
+              type="password"
+              value={passwordData.confirmPassword}
+              onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+              margin="normal"
+              required
+              autoComplete="new-password"
+            />
+            <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+              <Button onClick={handleClosePasswordDialog}>
+                取消
+              </Button>
+              <Button
+                type="submit"
+                variant="contained"
+                disabled={passwordLoading || !passwordData.currentPassword || !passwordData.newPassword}
+              >
+                {passwordLoading ? '修改中...' : '修改密码'}
+              </Button>
+            </Box>
+          </form>
+        </DialogContent>
+      </Dialog>
     </Box>
   )
 }
