@@ -33,9 +33,21 @@ export default function useBooks() {
     setError(null)
 
     try {
+      // 过滤掉空字符串的可选字段，避免数据库类型错误
+      const cleanedData = {
+        ...bookData,
+        isbn: bookData.isbn || undefined,
+        genre: bookData.genre || undefined,
+        publish_date: bookData.publish_date || undefined,
+        publisher: bookData.publisher || undefined,
+        rating: bookData.rating ? Number(bookData.rating) : undefined,
+        notes: bookData.notes || undefined,
+        read_status: !!bookData.read_status
+      }
+
       const { data, error } = await supabase
         .from('books')
-        .insert(bookData)
+        .insert(cleanedData)
         .select()
         .single()
 
@@ -58,7 +70,10 @@ export default function useBooks() {
     try {
       const { data, error } = await supabase
         .from('books')
-        .update({ ...updates, updated_at: new Date().toISOString() })
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString()
+        })
         .eq('id', id)
         .select()
         .single()
